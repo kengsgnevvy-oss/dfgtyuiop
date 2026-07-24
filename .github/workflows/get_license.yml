@@ -1,27 +1,47 @@
 name: Cloud License Generator
-on: workflow_dispatch # Запуск вручную через Actions
+on: workflow_dispatch
 
 jobs:
   generate:
     runs-on: ubuntu-latest
-    container:
-      image: gableroux/unity3d:2018.1.3f1-windows
     steps:
       - name: Generate ALF File
         run: |
-          # Пробуем вызвать Unity по его полному системному пути в Linux
-          /opt/Unity/Editor/Unity -batchmode -nographics -createManualActivationFile -quit -logfile /dev/stdout || true
+          # Создаем необходимые директории для Unity
+          mkdir -p $HOME/.cache/unity3d
+          mkdir -p $HOME/.local/share/unity3d/Unity
           
-          # Проверяем, где создался файл, и переименовываем его
+          # Запускаем Unity в Docker контейнере
+          docker run --rm \
+            -v $(pwd):/workspace \
+            -v $HOME/.cache/unity3d:/root/.cache/unity3d \
+            -v $HOME/.local/share/unity3d:/root/.local/share/unity3d \
+            -w /workspace \
+            gableroux/unity3d:2018.1.3f1-windows \
+            /opt/Unity/Editor/Unity \
+            -batchmode \
+            -nographics \
+            -createManualActivationFile \
+            -quit \
+            -logfile /dev/stdout || true
+          
+          # Проверяем, создался ли файл
           if ls *.alf 1> /dev/null 2>&1; then
             mv *.alf activation_request.alf
+            echo "ALF file created successfully"
           else
-            echo "Файл .alf не найден в корне, ищем по всей системе..."
-            find / -name "*.alf" 2>/dev/null -exec mv {} activation_request.alf \;
+            echo "ALF file not found in workspace, checking home directory..."
+            if ls $HOME/.local/share/unity3d/Unity/*.alf 1> /dev/null 2>&1; then
+              mv $HOME/.local/share/unity3d/Unity/*.alf activation_request.alf
+              echo "ALF file found in Unity directory"
+            else
+              echo "ERROR: ALF file not found anywhere"
+              exit 1
+            fi
           fi
           
       - name: Upload File to GitHub
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3  # Используем v3 для совместимости
         with:
           name: Cloud-ALF-File
           path: activation_request.alf

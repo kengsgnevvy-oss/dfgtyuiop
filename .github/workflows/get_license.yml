@@ -7,41 +7,13 @@ jobs:
     steps:
       - name: Generate ALF File
         run: |
-          # Создаем необходимые директории для Unity
-          mkdir -p $HOME/.cache/unity3d
-          mkdir -p $HOME/.local/share/unity3d/Unity
-          
-          # Запускаем Unity в Docker контейнере
           docker run --rm \
-            -v $(pwd):/workspace \
-            -v $HOME/.cache/unity3d:/root/.cache/unity3d \
-            -v $HOME/.local/share/unity3d:/root/.local/share/unity3d \
-            -w /workspace \
+            -v $(pwd):/output \
             gableroux/unity3d:2018.1.3f1-windows \
-            /opt/Unity/Editor/Unity \
-            -batchmode \
-            -nographics \
-            -createManualActivationFile \
-            -quit \
-            -logfile /dev/stdout || true
+            bash -c "/opt/Unity/Editor/Unity -batchmode -nographics -createManualActivationFile -quit -logfile /dev/stdout || true; cp \$(find / -name '*.alf' -type f 2>/dev/null | head -1) /output/activation_request.alf"
           
-          # Проверяем, создался ли файл
-          if ls *.alf 1> /dev/null 2>&1; then
-            mv *.alf activation_request.alf
-            echo "ALF file created successfully"
-          else
-            echo "ALF file not found in workspace, checking home directory..."
-            if ls $HOME/.local/share/unity3d/Unity/*.alf 1> /dev/null 2>&1; then
-              mv $HOME/.local/share/unity3d/Unity/*.alf activation_request.alf
-              echo "ALF file found in Unity directory"
-            else
-              echo "ERROR: ALF file not found anywhere"
-              exit 1
-            fi
-          fi
-          
-      - name: Upload File to GitHub
-        uses: actions/upload-artifact@v3  # Используем v3 для совместимости
+      - name: Upload ALF File
+        uses: actions/upload-artifact@v4
         with:
           name: Cloud-ALF-File
           path: activation_request.alf

@@ -5,26 +5,37 @@ jobs:
   generate:
     runs-on: ubuntu-latest
     steps:
-      - name: Generate ALF File
+      - name: Generate ALF File with HWID
         run: |
-          # Собираем системную информацию для MachineID
-          MACHINE_ID=$(cat /etc/machine-id 2>/dev/null || cat /var/lib/dbus/machine-id 2>/dev/null || echo "unknown")
+          # Получаем реальные аппаратные идентификаторы
+          MACHINE_ID=$(cat /etc/machine-id 2>/dev/null || echo "unknown")
+          CPU_ID=$(cat /proc/cpuinfo | grep -m1 "physical id" | cut -d':' -f2 | xargs || echo "0")
+          MAC_ADDR=$(cat /sys/class/net/eth0/address 2>/dev/null || ip link show | grep ether | head -1 | awk '{print $2}' || echo "00:00:00:00:00:00")
+          DISK_SERIAL=$(lsblk -o SERIAL -n /dev/sda 2>/dev/null || echo "unknown")
           
-          # Создаем правильный XML для Unity 2018
+          # Создаем HWID на основе железа
+          HWID=$(echo "${MACHINE_ID}${CPU_ID}${MAC_ADDR}${DISK_SERIAL}" | md5sum | cut -d' ' -f1)
+          
           cat > activation_request.alf << EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <root>
               <Request>
                   <MachineID>${MACHINE_ID}</MachineID>
+                  <HWID>${HWID}</HWID>
                   <Version>2018.1.3f1</Version>
                   <Platform>Linux</Platform>
                   <RequestType>ManualActivation</RequestType>
                   <RequestDate>$(date -u +%Y-%m-%dT%H:%M:%SZ)</RequestDate>
+                  <MachineInfo>
+                      <CPU>${CPU_ID}</CPU>
+                      <MAC>${MAC_ADDR}</MAC>
+                      <DiskSerial>${DISK_SERIAL}</DiskSerial>
+                  </MachineInfo>
               </Request>
           </root>
           EOF
           
-          echo "ALF file content:"
+          echo "Generated ALF file:"
           cat activation_request.alf
           
       - name: Upload ALF File

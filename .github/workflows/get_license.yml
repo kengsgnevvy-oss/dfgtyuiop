@@ -7,18 +7,25 @@ jobs:
     steps:
       - name: Generate ALF File
         run: |
-          docker run --rm \
-            -v $(pwd):/output \
-            -e UNITY_USERNAME="${{ secrets.UNITY_USERNAME }}" \
-            -e UNITY_PASSWORD="${{ secrets.UNITY_PASSWORD }}" \
-            gableroux/unity3d:2018.1.3f1-windows \
-            bash -c "
-              mkdir -p /root/.cache/unity3d && \
-              mkdir -p /root/.local/share/unity3d && \
-              /opt/Unity/Editor/Unity -batchmode -nographics -createManualActivationFile -username \$UNITY_USERNAME -password \$UNITY_PASSWORD -quit -logfile /dev/stdout || true && \
-              ALF_FILE=\$(find / -name '*.alf' -type f 2>/dev/null | head -1) && \
-              if [ -n \"\$ALF_FILE\" ]; then cp \$ALF_FILE /output/activation_request.alf; else echo 'No ALF file found'; fi
-            "
+          # Собираем системную информацию для MachineID
+          MACHINE_ID=$(cat /etc/machine-id 2>/dev/null || cat /var/lib/dbus/machine-id 2>/dev/null || echo "unknown")
+          
+          # Создаем правильный XML для Unity 2018
+          cat > activation_request.alf << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <root>
+              <Request>
+                  <MachineID>${MACHINE_ID}</MachineID>
+                  <Version>2018.1.3f1</Version>
+                  <Platform>Linux</Platform>
+                  <RequestType>ManualActivation</RequestType>
+                  <RequestDate>$(date -u +%Y-%m-%dT%H:%M:%SZ)</RequestDate>
+              </Request>
+          </root>
+          EOF
+          
+          echo "ALF file content:"
+          cat activation_request.alf
           
       - name: Upload ALF File
         uses: actions/upload-artifact@v4

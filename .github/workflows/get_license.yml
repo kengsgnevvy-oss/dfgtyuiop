@@ -1,0 +1,17 @@
+name: Cloud License Generator
+on: workflow_dispatch # Запуск кнопкой на сайте
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    container:
+      image: gableroux/unity3d:2018.1.3f1-windows
+    steps:
+      - name: Generate ALF File
+        run: |
+          unity-editor -batchmode -nographics -createManualActivationFile -quit -logfile /dev/stdout || true
+          mv *.alf activation_request.alf
+      - name: Upload File to GitHub
+        uses: actions/upload-artifact@v4
+        with:
+          name: Cloud-ALF-File
+          path: activation_request.alf

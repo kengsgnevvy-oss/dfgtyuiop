@@ -10,7 +10,13 @@ jobs:
           docker run --rm \
             -v $(pwd):/output \
             gableroux/unity3d:2018.1.3f1-windows \
-            bash -c "/opt/Unity/Editor/Unity -batchmode -nographics -createManualActivationFile -quit -logfile /dev/stdout || true; cp \$(find / -name '*.alf' -type f 2>/dev/null | head -1) /output/activation_request.alf"
+            bash -c "
+              mkdir -p /root/.cache/unity3d && \
+              mkdir -p /root/.local/share/unity3d && \
+              /opt/Unity/Editor/Unity -batchmode -nographics -createManualActivationFile -quit -logfile /dev/stdout || true && \
+              ALF_FILE=\$(find / -name '*.alf' -type f 2>/dev/null | head -1) && \
+              if [ -n \"\$ALF_FILE\" ]; then cp \$ALF_FILE /output/activation_request.alf; else echo 'No ALF file found'; fi
+            "
           
       - name: Upload ALF File
         uses: actions/upload-artifact@v4

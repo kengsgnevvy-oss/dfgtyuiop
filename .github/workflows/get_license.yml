@@ -1,5 +1,6 @@
 name: Cloud License Generator
-on: workflow_dispatch # Запуск кнопкой на сайте
+on: workflow_dispatch # Запуск вручную через Actions
+
 jobs:
   generate:
     runs-on: ubuntu-latest
@@ -8,8 +9,17 @@ jobs:
     steps:
       - name: Generate ALF File
         run: |
-          unity-editor -batchmode -nographics -createManualActivationFile -quit -logfile /dev/stdout || true
-          mv *.alf activation_request.alf
+          # Пробуем вызвать Unity по его полному системному пути в Linux
+          /opt/Unity/Editor/Unity -batchmode -nographics -createManualActivationFile -quit -logfile /dev/stdout || true
+          
+          # Проверяем, где создался файл, и переименовываем его
+          if ls *.alf 1> /dev/null 2>&1; then
+            mv *.alf activation_request.alf
+          else
+            echo "Файл .alf не найден в корне, ищем по всей системе..."
+            find / -name "*.alf" 2>/dev/null -exec mv {} activation_request.alf \;
+          fi
+          
       - name: Upload File to GitHub
         uses: actions/upload-artifact@v4
         with:

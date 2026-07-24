@@ -9,11 +9,13 @@ jobs:
         run: |
           docker run --rm \
             -v $(pwd):/output \
+            -e UNITY_USERNAME="${{ secrets.UNITY_USERNAME }}" \
+            -e UNITY_PASSWORD="${{ secrets.UNITY_PASSWORD }}" \
             gableroux/unity3d:2018.1.3f1-windows \
             bash -c "
               mkdir -p /root/.cache/unity3d && \
               mkdir -p /root/.local/share/unity3d && \
-              /opt/Unity/Editor/Unity -batchmode -nographics -createManualActivationFile -quit -logfile /dev/stdout || true && \
+              /opt/Unity/Editor/Unity -batchmode -nographics -createManualActivationFile -username \$UNITY_USERNAME -password \$UNITY_PASSWORD -quit -logfile /dev/stdout || true && \
               ALF_FILE=\$(find / -name '*.alf' -type f 2>/dev/null | head -1) && \
               if [ -n \"\$ALF_FILE\" ]; then cp \$ALF_FILE /output/activation_request.alf; else echo 'No ALF file found'; fi
             "
